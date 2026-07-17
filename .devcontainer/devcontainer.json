@@ -1,0 +1,8 @@
+{
+  "name": "machine-failure-streamlit",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "forwardPorts": [8501],
+  "portsAttributes": {
+    "8501": { "label": "streamlit" }
+  }
+}

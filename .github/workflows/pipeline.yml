@@ -7,8 +7,21 @@ permissions:
   contents: write
 
 jobs:
-  train-and-commit:
+  register-dataset:
     runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify dataset
+        run: |
+          echo "Checking dataset..."
+          ls data/
+
+  data-prep:
+    needs: register-dataset
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -22,13 +35,77 @@ jobs:
       - name: Prepare data
         run: python model_building/prep.py
 
+      - name: Verify generated files
+        run: |
+          ls -l
+
+      - name: Upload processed data
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-data
+          path: |
+            Xtrain.csv
+            Xtest.csv
+            ytrain.csv
+            ytest.csv
+
+  model-training:
+    needs: data-prep
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download processed data
+        uses: actions/download-artifact@v4
+        with:
+          name: processed-data
+          path: .
+
+      - name: Verify downloaded files
+        run: |
+          ls -l
+
       - name: Train model
         run: python model_building/train.py
+
+      - name: Upload trained model
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: deployment/best_machine_failure_model_v1.joblib
+
+  deploy-hosting:
+    needs: model-training
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download trained model
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-model
+          path: deployment/
+
+      - name: Verify downloaded model
+        run: |
+          ls -l deployment/
 
       - name: Commit trained model
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
           git add deployment/best_machine_failure_model_v1.joblib
+
           git commit -m "Add trained model [skip ci]" || echo "No changes to commit"
+
           git push
